@@ -124,8 +124,6 @@
             "      var responseStatus = 'FAILED';",
             "      var responseData = {};",
             "",
-            "      console.log('FILTERS');",
-            "      console.log(event.ResourceProperties.Filters);",
             "      var ec2 = new aws.EC2({region: event.ResourceProperties.Region});",
             "      var describeImagesParams = {",
             "          Filters: event.ResourceProperties.Filters",
