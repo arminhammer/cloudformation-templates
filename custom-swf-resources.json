@@ -1,0 +1,131 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Custom Resource Types for managing SWF resources",
+  "Resources": {
+    "Domain": {
+      "Type": "Custom::SWFDomain",
+      "Properties": {
+        "ServiceToken": {
+          "Fn::GetAtt": [
+            "SWFDomainFunction",
+            "Arn"
+          ]
+        },
+        "Region": {
+          "Ref": "AWS::Region"
+        },
+        "Name": "DomainName",
+        "WorkflowExecutionRetentionPeriodInDays": 30,
+        "Description": "String"
+      }
+    },
+    "SWFDomainFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "ZipFile": {
+            "Fn::Join": [
+              "",
+              [
+                "var response = require('cfn-response');",
+                "var AWS = require('aws-sdk');",
+                "var SWF = new AWS.SWF();",
+                "",
+                "exports.handler = function(event, context) {",
+                "  if (event.RequestType == 'Delete') {",
+                "    SWF.deprecateDomain({",
+                "      name: event.ResourceProperties.Name",
+                "    }, function(err, data) {",
+                "      if (err) console.log(err, err.stack);",
+                "      else     console.log(data);",
+                "      response.send(event, context, 'SUCCESS');",
+                "    });",
+                "  }",
+                "  var responseStatus = 'FAILED';",
+                "  var responseData = {};",
+                "",
+                "  SWF.registerDomain({",
+                "    name: event.ResourceProperties.Name,",
+                "    workflowExecutionRetentionPeriodInDays: event.ResourceProperties.WorkflowExecutionRetentionPeriodInDays,",
+                "    description: event.ResourceProperties.Description",
+                "  }, function(err, data) {",
+                "    if (err) {",
+                "      console.log(err, err.stack);",
+                "    }",
+                "    else {",
+                "      responseStatus = 'SUCCESS';",
+                "      responseData = data;",
+                "      console.log(data);",
+                "    }",
+                "    response.send(event, context, responseStatus, responseData);",
+                "  });",
+                "",
+                "};"
+              ]
+            ]
+          }
+        },
+        "Description": "SWFDomainFunction Function",
+        "FunctionName": "SWFDomainFunction",
+        "Handler": "index.handler",
+        "MemorySize": 128,
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaExecutionRole",
+            "Arn"
+          ]
+        },
+        "Runtime": "nodejs",
+        "Timeout": 30
+      }
+    },
+    "LambdaExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "root",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": "arn:aws:logs:*:*:*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "*"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}
