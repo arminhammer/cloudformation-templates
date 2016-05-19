@@ -14,7 +14,7 @@
         "Region": {
           "Ref": "AWS::Region"
         },
-        "Name": "DomainName0",
+        "Name": "DomainName",
         "WorkflowExecutionRetentionPeriodInDays": 30,
         "Description": "String"
       }
