@@ -1,0 +1,178 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Custom Resource Types for managing SWF resources",
+  "Resources": {
+    "CognitoUserPool": {
+      "Type": "Custom::CognitoUserPool",
+      "Properties": {
+        "ServiceToken": {
+          "Fn::GetAtt": [
+            "CognitoUserPoolFunction",
+            "Arn"
+          ]
+        },
+        "Region": {
+          "Ref": "AWS::Region"
+        },
+        "PoolName": "PoolName",
+        "AliasAttributes": [
+          "phone_number",
+          "email",
+          "preferred_username"
+        ],
+        "AutoVerifiedAttributes": [
+          "phone_number",
+          "email"
+        ],
+        "EmailVerificationMessage": "EmailVerificationMessage",
+        "EmailVerificationSubject": "EmailVerificationSubject",
+        "LambdaConfig": {
+          "CustomMessage": "CustomMessage",
+          "PostAuthentication": "PostAuthentication",
+          "PostConfirmation": "PostConfirmation",
+          "PreAuthentication": "PreAuthentication",
+          "PreSignUp": "PreSignUp"
+        },
+        "MfaConfiguration": "OFF",
+        "Policies": {
+          "PasswordPolicy": {
+            "MinimumLength": 0,
+            "RequireLowercase": false,
+            "RequireNumbers": false,
+            "RequireSymbols": false,
+            "RequireUppercase": false
+          }
+        },
+        "SmsAuthenticationMessage": "SmsAuthenticationMessage",
+        "SmsVerificationMessage": "SmsVerificationMessage"
+      }
+    },
+    "CognitoUserPoolFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "ZipFile": {
+            "Fn::Join": [
+              "",
+              [
+                "var response = require(\"cfn-response\");",
+                "var AWS = require(\"aws-sdk\");",
+                "var cognito = new AWS.CognitoIdentityServiceProvider();",
+                "exports.handler = function (event, context) {",
+                "  var responseStatus = \"FAILED\";",
+                "  var params = {",
+                "    PoolName: event.ResourceProperties.PoolName",
+                "  };",
+                "  if (event.RequestType == \"Delete\") {",
+                "    cognito.listUserPools({ MaxResults: 60 }, function (err, data) {",
+                "      if (err) {",
+                "        console.log(err, err.stack);",
+                "        response.send(event, context, responseStatus);",
+                "      }",
+                "      else {",
+                "        console.log(data);",
+                "        var userPool = {};",
+                "        for(var i = 0; i < data.UserPools.length; i++) {",
+                "          if(data.UserPools[i].Name == event.ResourceProperties.PoolName) {",
+                "            userPool = data.UserPools[i];",
+                "            break;     ",
+                "          }",
+                "        }",
+                "        cognito.deleteUserPool({",
+                "          UserPoolId: userPool.Id",
+                "        }, function (err, data) {",
+                "          if (err) {",
+                "            console.log(err, err.stack);",
+                "            response.send(event, context, responseStatus);",
+                "          }",
+                "          response.send(event, context, \"SUCCESS\");",
+                "        });",
+                "      }",
+                "    });",
+                "  } else if (event.RequestType == \"Update\") {",
+                "    responseStatus = \"SUCCESS\";",
+                "    response.send(event, context, responseStatus);",
+                "  } else {",
+                "    var responseData = {};",
+                "    cognito.createUserPool(params, function (err, data) {",
+                "      if (err) {",
+                "        console.log(err, err.stack);",
+                "      }",
+                "      else {",
+                "        responseStatus = \"SUCCESS\";",
+                "        console.log(data);",
+                "        responseData = { Id: data.UserPool.Id };",
+                "      }",
+                "      response.send(event, context, responseStatus, responseData);",
+                "    });",
+                "  }",
+                "};"
+              ]
+            ]
+          }
+        },
+        "Description": "CognitoUserPoolFunction Function",
+        "FunctionName": "CognitoUserPoolFunction",
+        "Handler": "index.handler",
+        "MemorySize": 128,
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaExecutionRole",
+            "Arn"
+          ]
+        },
+        "Runtime": "nodejs",
+        "Timeout": 30
+      }
+    },
+    "LambdaExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "root",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": "arn:aws:logs:*:*:*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "*"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {}
+}
